@@ -31,7 +31,7 @@ def resize(path, output_dir, resize):
 
 
 # Resize train images.
-#
+# 
 # The following code stores the input and output directories, then stores all the 
 # names of the images in a list using glob, and executes the resizing in parallel.
 # Final size is 1024x1024, in line with the U-Net architecture. 
@@ -39,8 +39,18 @@ def resize(path, output_dir, resize):
 # tqdm is used for visual representation of the progress, since the dataset is around
 # 30GB, it will take some time to process.
 
-input_folder = ".."
-output_folder = ".."
+input_folder = "D:\Users\imbrm\ISIC_2020\Dataset\Data"
+output_folder = "D:\Users\imbrm\ISIC_2020\Dataset\Resized"
+images = glob.glob(os.path.join(input_folder, "*.jpg"))
+size = (1024, 1024)
+Parallel(n_jobs=10)(delayed(resize)(i, output_folder, size) for i in tqdm(images))
+
+
+
+# Resize test images.
+
+input_folder = "D:\Users\imbrm\ISIC_2020\Dataset\Data"
+output_folder = "D:\Users\imbrm\ISIC_2020\Dataset\Resized"
 images = glob.glob(os.path.join(input_folder, "*.jpg"))
 size = (1024, 1024)
 Parallel(n_jobs=10)(delayed(resize)(i, output_folder, size) for i in tqdm(images))
