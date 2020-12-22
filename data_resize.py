@@ -25,7 +25,7 @@ def resize(path, output_dir, resize):
     base_name = os.path.basename(path)
     output_path = os.path.join(output_dir, base_name)
     img = Image.open(path)
-    img = img.resize((resize[1], resize[0]), resample=Image,BILINEAR)
+    img = img.resize((resize[1], resize[0]), resample=Image.BILINEAR)
     img.save(output_path)
 
 
@@ -34,7 +34,7 @@ def resize(path, output_dir, resize):
 # 
 # The following code stores the input and output directories, then stores all the 
 # names of the images in a list using glob, and executes the resizing in parallel.
-# Final size is 1024x1024, in line with the U-Net architecture. 
+# Final size is 572x572, in line with the U-Net architecture. 
 # For the parallelisation, Parallel and delayed are used. 
 # tqdm is used for visual representation of the progress, since the dataset is around
 # 30GB, it will take some time to process.
@@ -42,7 +42,7 @@ def resize(path, output_dir, resize):
 input_folder = "D:\Users\imbrm\ISIC_2020\Dataset\Data"
 output_folder = "D:\Users\imbrm\ISIC_2020\Dataset\Resized"
 images = glob.glob(os.path.join(input_folder, "*.jpg"))
-size = (1024, 1024)
+size = (572, 572)
 Parallel(n_jobs=10)(delayed(resize)(i, output_folder, size) for i in tqdm(images))
 
 
