@@ -1,5 +1,6 @@
 import os
 import glob
+import logging
 
 import pandas as pd
 
@@ -7,6 +8,8 @@ from tqdm import tqdm
 from PIL import Image, ImageFile
 from joblib import Parallel, delayed
 from sklearn import model_selection
+from torch.utils.data import Dataset
+from dataset import MyDataset
 
 
 
@@ -14,34 +17,36 @@ from sklearn import model_selection
 ImageFile.LOAD_TRUCATED_IMAGES = True
 
 
+# Configure logging's details
+logging.basicConfig(filename='data_resize.log', level=logging.INFO,
+                    format='%(asctime)s:%(levelname)s:%(message)s')
+        
 
 
-def resize(path, output_dir, size):
-    """Defining a function for will allow me to parallelise the resizing process.
+def resize(input_path, output_dir, size):
+    """Defining a function that will allow me to parallelise the resizing process.
     The following function resizes 1 image at a time. It takes 3 parameters: 
     1) the current image's path,
-    2) the path of the outpur folder in which resized images will be stored,
+    2) the path of the output folder in which resized images will be stored,
     3) a list containing the width and height to be resised to.
     The following function takes the name (basename) of the current image, 
     creates the path for saving the image in the ouput folder, and then
     opens, resizes and saves the image.
 
     Args:
-        path ([string]): [Path to the image]
-        output_dir ([string]): [Path to the output directory in which the images will be stored]
+        input_path ([string]): [Path to the image]
+        output_dir ([string]): [Name of the output directory in which the images will be stored]
         size ([tuple]): [Target size to be resized to]
 
     Returns:
         None
     """    
-    base_name = os.path.basename(path)
-    output_path = os.path.join(output_dir, base_name)
-    img = Image.open(path)
+    image_id = os.path.basename(input_path)
+    output_path = os.path.join(output_dir, image_id)
+
+    img = Image.open(input_path)
     img = img.resize((size[1], size[0]), resample=Image.BILINEAR)
     img.save(output_path)
-
-
-
 
 
 def resize_train(input_folder, output_folder, size, jobs):
@@ -63,9 +68,7 @@ def resize_train(input_folder, output_folder, size, jobs):
     """    
     images = glob.glob(os.path.join(input_folder, "*.jpg"))
     Parallel(n_jobs=jobs)(delayed(resize)(i, output_folder, size) for i in tqdm(images))
-
-
-
+    logging.info(f'Resized {len(input_folder)} TRAIN images.')
 
 
 def resize_test(input_folder, output_folder, size, jobs):
@@ -83,14 +86,12 @@ def resize_test(input_folder, output_folder, size, jobs):
     """    
     images = glob.glob(os.path.join(input_folder, "*.jpg"))
     Parallel(n_jobs=jobs)(delayed(resize)(i, output_folder, size) for i in tqdm(images))
+    logging.info(f'Resized {len(input_folder)} TEST images.')
 
 
-
-
-
-def split_train_test(input_path, splits):
+def split_train_validation(input_path, file_name, splits):
     """
-    Splits the dataset into train/test by adding a "k-fold" column in the .csv file and assigning a fold number.
+    Splits the dataset into train/validation by adding a "k-fold" column in the .csv file and assigning a fold number.
     Shuffles the dataset beforehand (line 3).
     StratifiedKFold because I want cancer/no-cancer ratio to be the same in both sets.
 
@@ -101,7 +102,7 @@ def split_train_test(input_path, splits):
     Returns:
         None
     """    
-    df = pd.read_csv(os.path.join(input_path, "train.csv"))
+    df = pd.read_csv(os.path.join(input_path, file_name))
     df["k-fold"] = -1
     df = df.sample(frac=1).reset_index(drop=True)
     y = df.target.values
@@ -109,12 +110,27 @@ def split_train_test(input_path, splits):
     for fold, train_idx, test_idx, in enumerate(kf.split(X=df, y=y)):
         df.loc[:, "k-fold"] = fold
     df.to_csv(os.path.join(input_path, "train_folds.csv"), index=False)
-    return None
-
-
+    # logging.info(f'The dataset train/test split is: ')
 
 
 
 if __name__ == "__main__":
-    path = input("Enter path to the groundtruth .csv file: ")
-    split_train_test(path, 5)
+    train_imgs_path = 'data/original_dataset/Train'
+    train_masks_path = 'data/original_dataset/Train_GT_masks'
+    train_imgs_save_path = 'data/modified_dataset/Train_resized'
+    train_masks_save_path = 'data/modified_dataset/Train_GT_resized'
+
+    test_imgs_path = 'data/original_dataset/Test'
+    test_masks_path = 'data/original_dataset/Test_GT_masks'
+    test_imgs_save_path = 'data/modified_dataset/Test_resized'
+    test_masks_save_path = 'data/modified_dataset/Test_GT_resized'
+
+    size = (572,572)
+    jobs = 10
+
+    resize_train(train_imgs_path, train_imgs_save_path, size, jobs)
+    resize_train(train_masks_path, train_masks_save_path, size, jobs)
+
+    resize_test(test_imgs_path, test_imgs_save_path, size, jobs)
+    resize_test(test_masks_path, test_masks_save_path, size, jobs)
+    
