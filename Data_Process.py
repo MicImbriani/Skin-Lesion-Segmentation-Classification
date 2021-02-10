@@ -64,7 +64,7 @@ def resize(input_path, output_dir, size):
     img.save(output_path)
 
 
-def resize_train(input_folder, output_folder, size, jobs):
+def resize_set(input_folder, output_folder, size, jobs):
     """
     Stores the input and output directories, then stores all the 
     names of the images in a list using glob, and executes the resizing in parallel.
@@ -85,23 +85,6 @@ def resize_train(input_folder, output_folder, size, jobs):
     Parallel(n_jobs=jobs)(delayed(resize)(i, output_folder, size) for i in tqdm(images))
     logging.info(f'Resized {len(input_folder)} TRAIN images.')
 
-
-def resize_test(input_folder, output_folder, size, jobs):
-    """
-    Same as resize_train but for the test set.
-
-    Args:
-        input_folder ([string]): [Path for input folder]
-        output_folder ([string]): [Path for output folder]
-        size ([tuple]): [Target size to be resized to]
-        jobs ([int]): [Number of parallelised jobs]
-
-    Returns:
-        None
-    """    
-    images = glob.glob(os.path.join(input_folder, "*.jpg"))
-    Parallel(n_jobs=jobs)(delayed(resize)(i, output_folder, size) for i in tqdm(images))
-    logging.info(f'Resized {len(input_folder)} TEST images.')
 
 
 def split_train_validation(input_path, file_name, splits):
@@ -127,5 +110,6 @@ def split_train_validation(input_path, file_name, splits):
     df.to_csv(os.path.join(input_path, "train_folds.csv"), index=False)
 
 
-
-    
+def generate_dataset(imgs_dir, masks_dir):
+    del_superpixels(imgs_dir) #TO BE CHANGED 
+    resize_set(train_imgs_path, train_imgs_save_path, resize_dimensions, resize_jobs)

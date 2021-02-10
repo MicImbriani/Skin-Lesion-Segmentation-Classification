@@ -7,11 +7,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim
+from torch.utils.data import DataLoader, random_split
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import data_process
 #from eval import eval_net
 from my_UNet import UNet
+from 
 
 
 
@@ -64,9 +67,32 @@ def train_net(net,
               epochs,
               batch_size,
               lr,
-              val_percent,
+              validation_ratio,
               save_cp,
               img_scale):
+    #dataset =
+    validation_quantity = int(len(dataset) * validation_ratio)
+    train_quantity = len(dataset) - validation_quantity
+
+    train, validation = random_split(dataset, [train_quanity, validation_quantity])
+
+    train_loader = DataLoader(train, 
+                              batch_size=batch_size,
+                              shuffle=True,
+                              num_workers=8,
+                              pin_memory=True)
+    validation_loader = DataLoader(validation,
+                                    batch_size=batch_size,
+                                    shuffle=False,
+                                    num_workers=8,
+                                    pin_memory=True,
+                                    drop_last=True)
+
+    writer = SummaryWriter(comment=f'LR:{lr}_BS:{batch_size}_VAL:{validation_ratio}')
+    global_step = 0
+
+    
+
     return
 
                 
