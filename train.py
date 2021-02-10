@@ -18,6 +18,8 @@ from
 
 
 
+logging.basicConfig(filename='train.log')
+
 
 
 """ train_imgs_path = 'data/original_dataset/Train'
@@ -91,7 +93,16 @@ def train_net(net,
     writer = SummaryWriter(comment=f'LR:{lr}_BS:{batch_size}_VAL:{validation_ratio}')
     global_step = 0
 
-    
+    logging.info(f'''Starting training:
+        Epochs:          {epochs}
+        Batch size:      {batch_size}
+        Learning rate:   {lr}
+        Training size:   {n_train}
+        Validation size: {n_val}
+        Checkpoints:     {save_cp}
+        Device:          {device.type}
+        Images scaling:  {img_scale}
+    ''')
 
     return
 
