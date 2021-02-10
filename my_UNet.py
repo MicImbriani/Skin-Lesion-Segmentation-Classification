@@ -22,14 +22,21 @@ def double_convolution(in_ch, out_ch, mid_ch=None, optimised=False):
     """
     if not mid_ch:
         mid_ch = out_ch
-    convolution = nn.Sequential(
+
+    if optimised:
+        convolution = nn.Sequential(
         nn.Conv2d(in_ch, mid_ch, kernel_size=3),
-        if optimised:
-            nn.BatchNorm2d(mid_ch),
+        nn.BatchNorm2d(mid_ch),
         nn.ReLU(inplace=True),
         nn.Conv2d(mid_ch, out_ch, kernel_size=3),
-        if optimised:
-            nn.BatchNorm2d(out_ch),
+        nn.BatchNorm2d(out_ch),
+        nn.ReLU(inplace=True),
+    )
+    else:
+        convolution = nn.Sequential(
+        nn.Conv2d(in_ch, mid_ch, kernel_size=3),
+        nn.ReLU(inplace=True),
+        nn.Conv2d(mid_ch, out_ch, kernel_size=3),
         nn.ReLU(inplace=True),
     )
     return convolution
