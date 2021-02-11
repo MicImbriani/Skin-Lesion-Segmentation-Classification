@@ -84,6 +84,18 @@ def resize_set(input_folder, output_folder, size, jobs):
     logging.info(f'Resized {len(input_folder)} TRAIN images.')
 
 
+def get_result(img_id, csv_file_path):
+    df = pd.read_csv(csv_file_path)
+    melanoma = df[df['image_id'] == img_id]['melanoma'].value()
+    seb_kerat = df[df['image_id'] == img_id]['seborrheic_keratosis'].value()
+    print(melanoma, seb_kerat)
+
+
+def augment_data(input_path, csv_file_path):
+    images = [splitext(file)[0] for file in listdir(input_path)
+                    if "_superpixels" not in splitext(file)[0]]
+    
+
 
 def split_train_validation(input_path, file_name, splits):
     """
@@ -111,3 +123,6 @@ def split_train_validation(input_path, file_name, splits):
 def generate_dataset(imgs_dir, masks_dir):
     del_superpixels(imgs_dir) #TO BE CHANGED 
     resize_set(train_imgs_path, train_imgs_save_path, resize_dimensions, resize_jobs)
+
+
+get_result('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ay.csv')
