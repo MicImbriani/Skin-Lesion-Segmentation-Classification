@@ -38,12 +38,12 @@ def del_superpixels(input_path):
         os.remove(str(input_path + '/' + str(image + '.png')))
 
 
-def resize(input_path, output_dir, size):
+def resize(input_path, output_path, size):
     """Defining a function that will allow me to parallelise the resizing process.
     The following function resizes 1 image at a time. It takes 3 parameters: 
     1) the current image's path,
     2) the path of the output folder in which resized images will be stored,
-    3) a list containing the width and height to be resised to.
+    3) a (w,h) tuple of the width and height to be resized to.
     The following function takes the name (basename) of the current image, 
     creates the path for saving the image in the ouput folder, and then
     opens, resizes and saves the image.
@@ -57,10 +57,8 @@ def resize(input_path, output_dir, size):
         None
     """    
     image_id = os.path.basename(input_path)
-    output_path = os.path.join(output_dir, image_id)
-
     img = Image.open(input_path)
-    img = img.resize((size[1], size[0]), resample=Image.BILINEAR)
+    img = img.resize((size[0], size[1]), resample=Image.BILINEAR)
     img.save(output_path)
 
 

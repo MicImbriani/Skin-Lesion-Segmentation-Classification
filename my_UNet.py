@@ -24,21 +24,19 @@ def double_convolution(in_ch, out_ch, mid_ch=None, optimised=False):
         mid_ch = out_ch
 
     if optimised:
-        convolution = nn.Sequential(
-        nn.Conv2d(in_ch, mid_ch, kernel_size=3),
-        nn.BatchNorm2d(mid_ch),
-        nn.ReLU(inplace=True),
-        nn.Conv2d(mid_ch, out_ch, kernel_size=3),
-        nn.BatchNorm2d(out_ch),
-        nn.ReLU(inplace=True),
-    )
+        convolution = nn.Sequential(nn.Conv2d(in_ch, mid_ch, kernel_size=3),
+                                    nn.BatchNorm2d(mid_ch),
+                                    nn.ReLU(inplace=True),
+                                    nn.Conv2d(mid_ch, out_ch, kernel_size=3),
+                                    nn.BatchNorm2d(out_ch),
+                                    nn.ReLU(inplace=True),
+                                    )
     else:
-        convolution = nn.Sequential(
-        nn.Conv2d(in_ch, mid_ch, kernel_size=3),
-        nn.ReLU(inplace=True),
-        nn.Conv2d(mid_ch, out_ch, kernel_size=3),
-        nn.ReLU(inplace=True),
-    )
+        convolution = nn.Sequential(nn.Conv2d(in_ch, mid_ch, kernel_size=3),
+                                    nn.ReLU(inplace=True),
+                                    nn.Conv2d(mid_ch, out_ch, kernel_size=3),
+                                    nn.ReLU(inplace=True),
+                                    )
     return convolution
 
 
@@ -93,8 +91,6 @@ class UNet(nn.Module):
         self.convolution_5 = double_convolution(512, 1024)
 
         # Define the 5 upwards transpostions and forward convolutions.
-        sizes = [1024, 512, 256, 128]
-
         self.up_transpose_1 = up_transpose(1024, 512)
         self.up_conv_1 = double_convolution(1024, 512)
 
@@ -141,6 +137,7 @@ class UNet(nn.Module):
         # 5th. There is no maxpooling after the last double convolution.
         down_conv_5 = self.convolution_5(maxpool_4)
         print(down_conv_5.size())
+
 
         # DECODER
         # 1st up-convolutional block
