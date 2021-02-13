@@ -85,16 +85,46 @@ def resize_set(input_folder, output_folder, size, jobs):
 
 
 def get_result(img_id, csv_file_path):
+    # given image id, finds the row in the csv file and returns results
     df = pd.read_csv(csv_file_path)
-    melanoma = df[df['image_id'] == img_id]['melanoma'].value()
-    seb_kerat = df[df['image_id'] == img_id]['seborrheic_keratosis'].value()
-    print(melanoma, seb_kerat)
+    img_index = df.loc[df['image_id'] == img_id].index[0]
+    melanoma = df.at[img_index, 'melanoma']
+    return melanoma
+
+
+    RandomPerspective
+
+""" RandomVertical/HorizontalFlip
+
+RandomResizedCrop
+
+RandomAffine
+
+Greyscale
+
+RandomErasing
+
+AutoRandomRotation """
 
 
 def augment_data(input_path, csv_file_path):
-    images = [splitext(file)[0] for file in listdir(input_path)
-                    if "_superpixels" not in splitext(file)[0]]
+    melanoma = get_result()
+    augm_probability = 0.5 
+    if melanoma == 0 :
+        # perform augment with 0.5 prob
+    if melanoma == 1 :
+        # perform 4 augms
+    else:
+        raise Exception("Result can only be 0 or 1.")
+        logging.info('ERROR: Melanoma diagnosis was not 0 or 1.')
+
     
+
+def exec_augment(input_path, csv_file_path):
+    images = [splitext(file)[0] for file in listdir(input_path)]
+    #images = [splitext(file)[0] for file in listdir(input_path)
+    #   if "_superpixels" not in splitext(file)[0]]
+    Parallel(n_jobs=jobs)(delayed(augment_data)(i) for i in tqdm(images))
 
 
 def split_train_validation(input_path, file_name, splits):
@@ -125,4 +155,4 @@ def generate_dataset(imgs_dir, masks_dir):
     resize_set(train_imgs_path, train_imgs_save_path, resize_dimensions, resize_jobs)
 
 
-get_result('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ay.csv')
+get_results('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ay.csv')
