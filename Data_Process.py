@@ -12,6 +12,10 @@ from tqdm import tqdm
 from PIL import Image, ImageFile
 from joblib import Parallel, delayed
 
+from torchvision import transforms
+
+
+
 #from dataset import MyDataset
 
 
@@ -30,7 +34,7 @@ def del_superpixels(input_path):
     """Deletes the superpixels images of the skin lesions.
 
     Args:
-        input_path ([string]): [Path of the folder containing all the images.]
+        input_path (string): Path of the folder containing all the images.
     """    
     images = [splitext(file)[0] for file in listdir(input_path)
                     if "_superpixels" in splitext(file)[0]]
@@ -49,9 +53,9 @@ def resize(input_path, output_path, size):
     opens, resizes and saves the image.
 
     Args:
-        input_path ([string]): [Path to the image]
-        output_dir ([string]): [Name of the output directory in which the images will be stored]
-        size ([tuple]): [Target size to be resized to]
+        input_path (string): Path to the image
+        output_dir (string): Name of the output directory in which the images will be stored
+        size (tuple): Target size to be resized to
 
     Returns:
         None
@@ -71,10 +75,10 @@ def resize_set(input_folder, output_folder, size, jobs):
     30GB, it will take some time to process.
 
     Args:
-        input_folder ([string]): [Path for input folder]
-        output_folder ([string]): [Path for output folder]
-        size ([tuple]): [Target size to be resized to]
-        jobs ([int]): [Number of parallelised jobs]
+        input_folder (string): Path for input folder
+        output_folder (string): Path for output folder
+        size (tuple): Target size to be resized to
+        jobs (int): Number of parallelised jobs
 
     Returns:
         None
@@ -84,7 +88,19 @@ def resize_set(input_folder, output_folder, size, jobs):
     logging.info(f'Resized {len(input_folder)} TRAIN images.')
 
 
+
+
+
 def get_result(img_id, csv_file_path):
+    """Checks whether the inputted image was a melanoma or not.
+
+    Args:
+        img_id (string): ID of the image.
+        csv_file_path (string): Path leading to the .csv file with ground truth.
+
+    Returns:
+        melanoma (int): The melanoma classification result in 0 or 1.
+    """    
     # given image id, finds the row in the csv file and returns results
     df = pd.read_csv(csv_file_path)
     img_index = df.loc[df['image_id'] == img_id].index[0]
@@ -92,39 +108,75 @@ def get_result(img_id, csv_file_path):
     return melanoma
 
 
-    RandomPerspective
+def augm_operations(image_id, folder_path, probability):
+    """Performs augmentation operations on the inputted image.
 
-""" RandomVertical/HorizontalFlip
+    Args:
+        image_id (string): The ID of the image to be augmented.
+        folder_path (string): Path of folder in which the augmented img will be saved.
+        probability (float): Probability that the augmentation will be applied. 
 
-RandomResizedCrop
-
-RandomAffine
-
-Greyscale
-
-RandomErasing
-
-AutoRandomRotation """
-
-
-def augment_data(input_path, csv_file_path):
-    melanoma = get_result()
-    augm_probability = 0.5 
-    if melanoma == 0 :
-        # perform augment with 0.5 prob
-    if melanoma == 1 :
-        # perform 4 augms
-    else:
-        raise Exception("Result can only be 0 or 1.")
-        logging.info('ERROR: Melanoma diagnosis was not 0 or 1.')
-
+    Returns:
+        new_img (Image): New augmented PIL Image.
+    """    
+    img = Image.open(folder_path + '/' + image_id + '.jpg')
+    transf_list = [transforms.RandomAffine(degrees=360,
+                                scale=(0.4,1.2),
+                                shear=[0, 20, 0, 20],
+                                fillcolor=0),
+            transforms.RandomHorizontalFlip(0.5),
+            transforms.RandomVerticalFlip(0.5),
+            transforms.RandomPerspective(),
+            transforms.RandomResizedCrop(size=img.size)]
+    transformer = transforms.RandomApply(transf_list, probability)
+    new_img = transformer(img)
+    new_img.show()
+    new_img.show()
+    return new_img
     
 
-def exec_augment(input_path, csv_file_path):
-    images = [splitext(file)[0] for file in listdir(input_path)]
+def augment_img(image_id, folder_path, csv_file_path):
+    """Executes augmentation on a single image. Due to imbalanced dataset, 
+    it will perform more augmentation on melanoma images.
+    If mole is not melanoma, perform 1 augmentation with probability=0.5.
+    If mole is melanoma, perform 4 augmentation with probability=1.
+
+    Args:
+        image_id (string): ID of the image to be augmented.
+        folder_path (string): Path of folder in which the augmented img will be saved.
+        csv_file_path (string): Path leading to the .csv file with ground truth.
+
+    Raises:
+        Exception: [description]
+    """    
+    melanoma = int(get_result(image_id, csv_file_path))
+    if melanoma == 0 : # perform augment with 0.5 prob
+        augm_probability = 0.5 
+        img_1 = augm_operations(image_id, folder_path, augm_probability)
+        img_1.save(folder_path + '/' + image_id + 'x1', 'JPEG')
+    if melanoma == 1 : # perform 4 augms
+        augm_probability = 1
+        img_1 = augm_operations(image_id, folder_path, 1)
+        img_2 = augm_operations(image_id, folder_path, 1)
+        img_3 = augm_operations(image_id, folder_path, 1)
+        img_4 = augm_operations(image_id, folder_path, 1)
+
+        img_1.save(folder_path + '/' + image_id + 'x1' + '.jpg')
+        img_2.save(folder_path + '/' + image_id + 'x2' + '.jpg')
+        img_3.save(folder_path + '/' + image_id + 'x3' + '.jpg')
+        img_4.save(folder_path + '/' + image_id + 'x4' + '.jpg')
+    else:
+        raise Exception("Result can only be 0 or 1.")
+
+
+def augment_dataset(input_folder_path, csv_file_path):
+    images = [splitext(file)[0] for file in listdir(input_folder_path)]
     #images = [splitext(file)[0] for file in listdir(input_path)
     #   if "_superpixels" not in splitext(file)[0]]
-    Parallel(n_jobs=jobs)(delayed(augment_data)(i) for i in tqdm(images))
+    Parallel(n_jobs=jobs)(delayed(augment_img)(img, input_folder_path, csv_file_path) for img in tqdm(images))
+
+
+
 
 
 def split_train_validation(input_path, file_name, splits):
@@ -155,4 +207,5 @@ def generate_dataset(imgs_dir, masks_dir):
     resize_set(train_imgs_path, train_imgs_save_path, resize_dimensions, resize_jobs)
 
 
-get_results('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ay.csv')
+#get_result('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ay.csv')
+augment_img('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ayf', 'D:/Users/imbrm/ISIC_2017/ay.csv')
