@@ -3,6 +3,7 @@ from os.path import splitext
 from os import listdir
 import glob
 import logging
+import random
 
 import pandas as pd
 from sklearn import model_selection
@@ -119,27 +120,32 @@ def augm_operations(image_id, folder_path, probability):
     Returns:
         new_img (Image): New augmented PIL Image.
     """    
+    mask_id = image_id + '_segmentation'
     img = Image.open(folder_path + '/' + image_id + '.jpg')
-    transf_list = [transforms.RandomAffine(degrees=360,
+    mask = Image.open(folder_path + '/' + mask_id + '.png')
+
+    transf_comp = transforms.Compose([
+        transforms.RandomAffine(degrees=360,
                                 scale=(0.4,1.2),
                                 shear=[0, 20, 0, 20],
                                 fillcolor=0),
-            transforms.RandomHorizontalFlip(0.5),
-            transforms.RandomVerticalFlip(0.5),
-            transforms.RandomPerspective(),
-            transforms.RandomResizedCrop(size=img.size)]
-    transformer = transforms.RandomApply(transf_list, probability)
-    new_img = transformer(img)
+        transforms.RandomHorizontalFlip(1),
+        transforms.RandomVerticalFlip(1),
+        transforms.RandomPerspective(p=1),
+        transforms.RandomResizedCrop(size=img.size)])
+    new_img = transf_comp(img)
+    new_img_mask = transf_comp(mask)
     new_img.show()
-    new_img.show()
-    return new_img
+    new_img_mask.show()
+    return new_img, new_img_mask
     
 
-def augment_img(image_id, folder_path, csv_file_path):
+def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
     """Executes augmentation on a single image. Due to imbalanced dataset, 
     it will perform more augmentation on melanoma images.
     If mole is not melanoma, perform 1 augmentation with probability=0.5.
     If mole is melanoma, perform 4 augmentation with probability=1.
+    It performs the same transformation on the image and its relative mask.
 
     Args:
         image_id (string): ID of the image to be augmented.
@@ -152,19 +158,32 @@ def augment_img(image_id, folder_path, csv_file_path):
     melanoma = int(get_result(image_id, csv_file_path))
     if melanoma == 0 : # perform augment with 0.5 prob
         augm_probability = 0.5 
-        img_1 = augm_operations(image_id, folder_path, augm_probability)
-        img_1.save(folder_path + '/' + image_id + 'x1', 'JPEG')
+        
+        n = random.random()
+        if n < 0.5:
+            img_1, img_1_mask = augm_operations(image_id, images_folder_path, augm_probability)
+
+            img_1.save(images_folder_path + '/' + image_id + 'x1' + '.jpg')
+            img_1_mask.save(masks_folder_path + '/' + image_id + '_segmentation' + 'x1' + '.png')
     if melanoma == 1 : # perform 4 augms
         augm_probability = 1
-        img_1 = augm_operations(image_id, folder_path, 1)
-        img_2 = augm_operations(image_id, folder_path, 1)
-        img_3 = augm_operations(image_id, folder_path, 1)
-        img_4 = augm_operations(image_id, folder_path, 1)
 
-        img_1.save(folder_path + '/' + image_id + 'x1' + '.jpg')
-        img_2.save(folder_path + '/' + image_id + 'x2' + '.jpg')
-        img_3.save(folder_path + '/' + image_id + 'x3' + '.jpg')
-        img_4.save(folder_path + '/' + image_id + 'x4' + '.jpg')
+        img_1, img_1_mask = augm_operations(image_id, images_folder_path, 1)
+        img_2, img_2_mask = augm_operations(image_id, images_folder_path, 1)
+        img_3, img_3_mask = augm_operations(image_id, images_folder_path, 1)
+        img_4, img_4_mask = augm_operations(image_id, images_folder_path, 1)
+
+
+        img_1.save(images_folder_path + '/' + image_id + 'x1' + '.jpg')
+        img_2.save(images_folder_path + '/' + image_id + 'x2' + '.jpg')
+        img_3.save(images_folder_path + '/' + image_id + 'x3' + '.jpg')
+        img_4.save(images_folder_path + '/' + image_id + 'x4' + '.jpg')
+
+        img_1_mask.save(masks_folder_path + '/' + image_id + '_segmentation' + 'x1' + '.png')
+        img_2_mask.save(masks_folder_path + '/' + image_id + '_segmentation' + 'x2' + '.png')
+        img_3_mask.save(masks_folder_path + '/' + image_id + '_segmentation' + 'x3' + '.png')
+        img_4_mask.save(masks_folder_path + '/' + image_id + '_segmentation' + 'x4' + '.png')
+        
     else:
         raise Exception("Result can only be 0 or 1.")
 
@@ -208,4 +227,4 @@ def generate_dataset(imgs_dir, masks_dir):
 
 
 #get_result('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ay.csv')
-augment_img('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ayf', 'D:/Users/imbrm/ISIC_2017/ay.csv')
+augment_img('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ayf','D:/Users/imbrm/ISIC_2017/ayf', 'D:/Users/imbrm/ISIC_2017/ay.csv')
