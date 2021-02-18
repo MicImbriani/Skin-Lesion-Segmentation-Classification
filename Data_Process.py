@@ -186,19 +186,35 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
     if melanoma == 1:  # perform 4 augms
         augm_probability = 1
 
-        img_1, img_1_mask = augment_operations(image_id, images_folder_path, masks_folder_path)
-        img_2, img_2_mask = augment_operations(image_id, images_folder_path, masks_folder_path)
-        img_3, img_3_mask = augment_operations(image_id, images_folder_path, masks_folder_path)
-        img_4, img_4_mask = augment_operations(image_id, images_folder_path, masks_folder_path)
+        img_1, img_1_mask = augment_operations(
+            image_id, images_folder_path, masks_folder_path
+        )
+        img_2, img_2_mask = augment_operations(
+            image_id, images_folder_path, masks_folder_path
+        )
+        img_3, img_3_mask = augment_operations(
+            image_id, images_folder_path, masks_folder_path
+        )
+        img_4, img_4_mask = augment_operations(
+            image_id, images_folder_path, masks_folder_path
+        )
 
-        img_1.save(images_folder_path + '/' + image_id + 'x1' + '.jpg')
-        img_2.save(images_folder_path + '/' + image_id + 'x2' + '.jpg')
-        img_3.save(images_folder_path + '/' + image_id + 'x3' + '.jpg')
-        img_4.save(images_folder_path + '/' + image_id + 'x4' + '.jpg')
-        img_1_mask.save(masks_folder_path + '/' + image_id + '_segmentation' + 'x1' + '.png')
-        img_2_mask.save(masks_folder_path + '/' + image_id + '_segmentation' + 'x2' + '.png')
-        img_3_mask.save(masks_folder_path + '/' + image_id + '_segmentation' + 'x3' + '.png')
-        img_4_mask.save(masks_folder_path + '/' + image_id + '_segmentation' + 'x4' + '.png')
+        img_1.save(images_folder_path + "/" + image_id + "x1" + ".jpg")
+        img_2.save(images_folder_path + "/" + image_id + "x2" + ".jpg")
+        img_3.save(images_folder_path + "/" + image_id + "x3" + ".jpg")
+        img_4.save(images_folder_path + "/" + image_id + "x4" + ".jpg")
+        img_1_mask.save(
+            masks_folder_path + "/" + image_id + "_segmentation" + "x1" + ".png"
+        )
+        img_2_mask.save(
+            masks_folder_path + "/" + image_id + "_segmentation" + "x2" + ".png"
+        )
+        img_3_mask.save(
+            masks_folder_path + "/" + image_id + "_segmentation" + "x3" + ".png"
+        )
+        img_4_mask.save(
+            masks_folder_path + "/" + image_id + "_segmentation" + "x4" + ".png"
+        )
 
 
 def augment_dataset(images_folder_path, masks_folder_path, csv_file_path, jobs):
@@ -271,3 +287,4 @@ augment_dataset(
     "D:/Users/imbrm/ISIC_2017/ay.csv",
     3,
 )
+
