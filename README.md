@@ -4,4 +4,4 @@
 
 Dataset can be downloaded directly from ISIC 2020 challenge's website.
 
-https://challenge2020.isic-archive.com/
+https://challenge.isic-archive.com/data

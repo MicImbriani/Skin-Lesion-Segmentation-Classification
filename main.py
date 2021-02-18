@@ -1,7 +1,7 @@
 import os
 import torch 
 import U-Net 
-import data_resize
+import data_process
 
 import numpy as np
 import pandas as import pd
@@ -28,8 +28,8 @@ output_folder_test = "D:\Users\imbrm\ISIC_2020\Dataset\Resized"
 size = (572,572)
 n_jobs = 10 
 
-data_resize.resize_train(input_folder, output_folder, size, n_jobs)
-data_resize.resize_test(input_folder, output_folder, size, n_jobs)
+data_process.resize_train(input_folder, output_folder, size, n_jobs)
+data_process.resize_test(input_folder, output_folder, size, n_jobs)
 
 
 unet = U-Net()
