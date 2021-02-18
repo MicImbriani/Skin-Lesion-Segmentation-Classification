@@ -33,23 +33,27 @@ logging.basicConfig(
 )
 
 
-def del_superpixels(input_path):
+def del_superpixels(input_path, jobs):
     """Deletes the superpixels images of the skin lesions.
 
     Args:
         input_path (string): Path of the folder containing all the images.
+        jobs (string): Number of job for parallelisation.
+    
+    Returns:
+        None
     """
     images = [
         splitext(file)[0]
         for file in listdir(input_path)
         if "_superpixels" in splitext(file)[0]
     ]
-    for image in images:
-        os.remove(str(input_path + "/" + str(image + ".png")))
+    print("Deleting Superpixel Images:")
+    Parallel(n_jobs=jobs)(delayed(os.remove)(str(input_path + "/" + str(image + ".png"))) for image in tqdm(images))
     logging.info(f"Succesfully deleted {len(images)} SUPERPIXEL images.")
 
 
-def resize(input_path, output_path, size):
+def resize(image, input_folder, output_path, size, image_or_mask):
     """Defining a function that will allow me to parallelise the resizing process.
     The following function resizes 1 image at a time. It takes 3 parameters:
     1) the current image's path,
@@ -60,20 +64,28 @@ def resize(input_path, output_path, size):
     opens, resizes and saves the image.
 
     Args:
-        input_path (string): Path to the image
-        output_dir (string): Name of the output directory in which the images will be stored
-        size (tuple): Target size to be resized to
+        input_path (string): Path to the image.
+        output_dir (string): Name of the output directory in which the images will be stored.
+        size (tuple): Target size to be resized to.
+        image_or_mask (string): States whether it is an image or a mask.
 
     Returns:
         None
     """
-    image_id = os.path.basename(input_path)
-    img = Image.open(input_path)
-    img = img.resize((size[0], size[1]), resample=Image.BILINEAR)
-    img.save(output_path)
+    if image_or_mask == "IMAGE":
+        image_path = input_folder + "/" + image + ".jpg"
+        img = Image.open(image_path)
+        img = img.resize((size[0], size[1]), resample=Image.BILINEAR)
+        img.save(output_path + "/" + image + ".jpg")
+
+    if image_or_mask == "MASK":
+        image_path = input_folder + "/" + image + ".png"        
+        img = Image.open(image_path)
+        img = img.resize((size[0], size[1]), resample=Image.BILINEAR)
+        img.save(output_path + "/" + image + ".png")
 
 
-def resize_set(input_folder, output_folder, size, jobs, train_val_test):
+def resize_set(input_folder, output_folder, size, jobs, train_or_test, image_or_mask):
     """
     Stores the input and output directories, then stores all the
     names of the images in a list using glob, and executes the resizing in parallel.
@@ -86,14 +98,22 @@ def resize_set(input_folder, output_folder, size, jobs, train_val_test):
         output_folder (string): Path for output folder.
         size (tuple): Target size to be resized to.
         jobs (int): Number of parallelised jobs.
-        train_val_test (string): States whether it's train/test/validation set.
+        train_or_test (string): States whether it's train or test set.
+        image_or_mask (string): States whether it is an image or a mask.
 
     Returns:
         None
     """
-    images = glob.glob(os.path.join(input_folder, "*.jpg"))
-    Parallel(n_jobs=jobs)(delayed(resize)(i, output_folder, size) for i in tqdm(images))
-    logging.info(f"Resized {len(input_folder)} {train_val_test} images.")
+    images = [
+        splitext(file)[0]
+        for file in listdir(input_folder)
+    ]
+    print(f"Resizing {train_or_test} Images:")
+    Parallel(n_jobs=jobs)(delayed(resize)(
+        image, input_folder, output_folder, size, image_or_mask
+    ) 
+        for image in tqdm(images))
+    logging.info(f"Resized {len(input_folder)} {train_or_test} images.")
 
 
 def get_result(image_id, csv_file_path):
@@ -203,6 +223,7 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
         img_2.save(images_folder_path + "/" + image_id + "x2" + ".jpg")
         img_3.save(images_folder_path + "/" + image_id + "x3" + ".jpg")
         img_4.save(images_folder_path + "/" + image_id + "x4" + ".jpg")
+
         img_1_mask.save(
             masks_folder_path + "/" + image_id + "_segmentation" + "x1" + ".png"
         )
@@ -231,6 +252,7 @@ def augment_dataset(images_folder_path, masks_folder_path, csv_file_path, jobs):
         None
     """
     images = [splitext(file)[0] for file in listdir(images_folder_path)]
+    print("Augmenting images:")
     Parallel(n_jobs=jobs)(
         delayed(augment_img)(
             image, images_folder_path, masks_folder_path, csv_file_path
@@ -238,6 +260,43 @@ def augment_dataset(images_folder_path, masks_folder_path, csv_file_path, jobs):
         for image in tqdm(images)
     )
     logging.info(f"Succesfully augmented {len(images)} images.")
+
+
+def turn_grayscale(image, folder_path):
+    """Function for parallelising the grayscale process.
+
+    Args:
+        image (string): ID of image to be turn into grayscale.
+        folder_path (string): Path leading to folder containing images.
+    
+    Returns:
+        None
+    """    
+    img = Image.open(folder_path + "/" + image + ".jpg")
+    grey = transforms.functional.rgb_to_grayscale(img)
+    grey.save(folder_path + "/" + image + ".jpg")
+
+
+
+def make_greyscale(folder_path, jobs):
+    """Turns all images in a folder from RGB to grayscale.
+
+    Args:
+        folder_path (string): Path leading to folder containing images.
+        jobs (int): Number of job for parallelisation.
+    
+    Returns:
+        None
+    """    
+    images = [splitext(file)[0] for file in listdir(folder_path)]
+    print("Turning images to GrayScale:")
+    Parallel(n_jobs=jobs)(
+        delayed(turn_grayscale)(
+            image, folder_path
+        )
+        for image in tqdm(images)
+    )
+    logging.info(f"Successfully turned {len(images)} images to GrayScale.")
 
 
 def split_train_validation(input_path, file_name, splits):
@@ -267,24 +326,65 @@ def split_train_validation(input_path, file_name, splits):
     df.to_csv(os.path.join(input_path, "train_folds.csv"), index=False)
 
 
-def generate_dataset(imgs_dir, masks_dir):
-    del_superpixels(imgs_dir)  # TO BE CHANGED
+def generate_dataset(  #delete,augment,resize,greyscale,split
+    train_or_test,
+    images_folder_path,
+    masks_folder_path,
+    output_folder_path,
+    masks_output_path,
+    csv_file_path,
+    resize_dimensions,
+    n_jobs
+    ):
+    # Delete superpixels.
+    del_superpixels(images_folder_path, n_jobs)
+
+    # Augment with relative masks.
+    augment_dataset(
+        images_folder_path,
+        masks_folder_path,
+        csv_file_path,
+        n_jobs,
+    )
+
+    # Resize images.
     resize_set(
-        train_imgs_path,
-        train_imgs_save_path,
+        images_folder_path,
+        output_folder_path,
         resize_dimensions,
-        resize_jobs,
-        train_val_test="TRAIN",
+        n_jobs,
+        train_or_test,
+        image_or_mask="IMAGE",
+    )
+
+    # Resize masks.
+    resize_set(
+        masks_folder_path,
+        masks_output_path,
+        resize_dimensions,
+        n_jobs,
+        train_or_test,
+        image_or_mask="MASK",
+    )
+
+    # Make images greyscale.
+    make_greyscale(
+        output_folder_path,
+        n_jobs,
     )
 
 
-# del_superpixels('D:/Users/imbrm/ISIC_2017/ayff')
-# get_result('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ay.csv')
-# augment_img('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ayff','D:/Users/imbrm/ISIC_2017/ayff', 'D:/Users/imbrm/ISIC_2017/ay.csv')
-augment_dataset(
-    "D:/Users/imbrm/ISIC_2017/ayff",
-    "D:/Users/imbrm/ISIC_2017/ayffs",
-    "D:/Users/imbrm/ISIC_2017/ay.csv",
-    3,
-)
 
+
+
+if __name__ == "__main__":
+    generate_dataset(
+        "TRAIN",
+        "D:/Users/imbrm/ISIC_2017/check/ayff",
+        "D:/Users/imbrm/ISIC_2017/check/ayffs",
+        "D:/Users/imbrm/ISIC_2017/check/ayffout",
+        "D:/Users/imbrm/ISIC_2017/check/ayffsout",
+        "D:/Users/imbrm/ISIC_2017/check/ay.csv",
+        (572,572),
+        3,
+    )
