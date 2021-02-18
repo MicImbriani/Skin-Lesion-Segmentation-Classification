@@ -15,12 +15,10 @@ from PIL import Image, ImageFile
 from joblib import Parallel, delayed
 
 from torchvision import transforms
-import torch 
+import torch
 
 
-
-#from dataset import MyDataset
-
+# from dataset import MyDataset
 
 
 # Make PIL tolerant of uneven images block sizes.
@@ -28,9 +26,11 @@ ImageFile.LOAD_TRUCATED_IMAGES = True
 
 
 # Configure logging's details
-logging.basicConfig(filename='data_process.log', level=logging.INFO,
-                    format='%(asctime)s:%(levelname)s:%(message)s')
-
+logging.basicConfig(
+    filename="data_process.log",
+    level=logging.INFO,
+    format="%(asctime)s:%(levelname)s:%(message)s",
+)
 
 
 def del_superpixels(input_path):
@@ -38,21 +38,24 @@ def del_superpixels(input_path):
 
     Args:
         input_path (string): Path of the folder containing all the images.
-    """    
-    images = [splitext(file)[0] for file in listdir(input_path)
-                    if "_superpixels" in splitext(file)[0]]
+    """
+    images = [
+        splitext(file)[0]
+        for file in listdir(input_path)
+        if "_superpixels" in splitext(file)[0]
+    ]
     for image in images:
-        os.remove(str(input_path + '/' + str(image + '.png')))
-    logging.info(f'Succesfully deleted {len(images)} SUPERPIXEL images.')
+        os.remove(str(input_path + "/" + str(image + ".png")))
+    logging.info(f"Succesfully deleted {len(images)} SUPERPIXEL images.")
 
 
 def resize(input_path, output_path, size):
     """Defining a function that will allow me to parallelise the resizing process.
-    The following function resizes 1 image at a time. It takes 3 parameters: 
+    The following function resizes 1 image at a time. It takes 3 parameters:
     1) the current image's path,
     2) the path of the output folder in which resized images will be stored,
     3) a (w,h) tuple of the width and height to be resized to.
-    The following function takes the name (basename) of the current image, 
+    The following function takes the name (basename) of the current image,
     creates the path for saving the image in the ouput folder, and then
     opens, resizes and saves the image.
 
@@ -63,7 +66,7 @@ def resize(input_path, output_path, size):
 
     Returns:
         None
-    """    
+    """
     image_id = os.path.basename(input_path)
     img = Image.open(input_path)
     img = img.resize((size[0], size[1]), resample=Image.BILINEAR)
@@ -72,9 +75,9 @@ def resize(input_path, output_path, size):
 
 def resize_set(input_folder, output_folder, size, jobs, train_val_test):
     """
-    Stores the input and output directories, then stores all the 
+    Stores the input and output directories, then stores all the
     names of the images in a list using glob, and executes the resizing in parallel.
-    For the parallelisation, Parallel and delayed are used. 
+    For the parallelisation, Parallel and delayed are used.
     tqdm is used for visual representation of the progress, since the dataset is around
     30GB, it will take some time to process.
 
@@ -87,13 +90,10 @@ def resize_set(input_folder, output_folder, size, jobs, train_val_test):
 
     Returns:
         None
-    """    
+    """
     images = glob.glob(os.path.join(input_folder, "*.jpg"))
     Parallel(n_jobs=jobs)(delayed(resize)(i, output_folder, size) for i in tqdm(images))
-    logging.info(f'Resized {len(input_folder)} {train_val_test} images.')
-
-
-
+    logging.info(f"Resized {len(input_folder)} {train_val_test} images.")
 
 
 def get_result(image_id, csv_file_path):
@@ -105,12 +105,12 @@ def get_result(image_id, csv_file_path):
 
     Returns:
         melanoma (int): The melanoma classification result in 0 or 1.
-    """    
+    """
     # given image id, finds the row in the csv file and returns results
     df = pd.read_csv(csv_file_path)
-    img_in = df.loc[df['image_id'] == image_id]
-    img_index = df.loc[df['image_id'] == image_id].index[0]
-    melanoma = df.at[img_index, 'melanoma']
+    img_in = df.loc[df["image_id"] == image_id]
+    img_index = df.loc[df["image_id"] == image_id].index[0]
+    melanoma = df.at[img_index, "melanoma"]
     return melanoma
 
 
@@ -126,22 +126,24 @@ def augment_operations(image_id, image_folder_path, mask_folder_path):
 
     Returns:
         new_img (Image): New augmented PIL Image.
-    """    
-    mask_id = image_id + '_segmentation'
-    img = Image.open(image_folder_path + '/' + image_id + '.jpg')
-    mask = Image.open(mask_folder_path + '/' + mask_id + '.png')
+    """
+    mask_id = image_id + "_segmentation"
+    img = Image.open(image_folder_path + "/" + image_id + ".jpg")
+    mask = Image.open(mask_folder_path + "/" + mask_id + ".png")
 
-    transf_comp = transforms.Compose([
-        transforms.RandomAffine(degrees=360,
-                                scale=(0.5,1.1),
-                                shear=[0, 20, 0, 20],
-                                fillcolor=0),
-        transforms.RandomHorizontalFlip(0.5),
-        transforms.RandomVerticalFlip(0.5),
-        transforms.RandomPerspective(p=1),
-        transforms.RandomResizedCrop(size=img.size)])
+    transf_comp = transforms.Compose(
+        [
+            transforms.RandomAffine(
+                degrees=360, scale=(0.5, 1.1), shear=[0, 20, 0, 20], fillcolor=0
+            ),
+            transforms.RandomHorizontalFlip(0.5),
+            transforms.RandomVerticalFlip(0.5),
+            transforms.RandomPerspective(p=1),
+            transforms.RandomResizedCrop(size=img.size),
+        ]
+    )
 
-    seed = np.random.randint(0, 2**30)
+    seed = np.random.randint(0, 2 ** 30)
     random.seed(seed)
     torch.manual_seed(seed)
     new_img = transf_comp(img)
@@ -149,10 +151,10 @@ def augment_operations(image_id, image_folder_path, mask_folder_path):
     new_img_mask = transf_comp(mask)
 
     return new_img, new_img_mask
-    
+
 
 def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
-    """Executes augmentation on a single image. Due to imbalanced dataset, 
+    """Executes augmentation on a single image. Due to imbalanced dataset,
     it will perform more augmentation on melanoma images.
     If mole is not melanoma, perform 1 augmentation with probability=0.5.
     If mole is melanoma, perform 4 augmentation with probability=1.
@@ -166,18 +168,22 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
 
     Raises:
         Exception: [description]
-    """    
+    """
     melanoma = int(get_result(image_id, csv_file_path))
-    if melanoma == 0 : # perform augment with 0.5 prob
-        augm_probability = 0.5 
+    if melanoma == 0:  # perform augment with 0.5 prob
+        augm_probability = 0.5
         n = random.random()
         if n < augm_probability:
-            img_1, img_1_mask = augment_operations(image_id, images_folder_path, masks_folder_path)
+            img_1, img_1_mask = augment_operations(
+                image_id, images_folder_path, masks_folder_path
+            )
 
-            img_1.save(images_folder_path + '/' + image_id + 'x1' + '.jpg')
-            img_1_mask.save(masks_folder_path + '/' + image_id + '_segmentation' + 'x1' + '.png')
+            img_1.save(images_folder_path + "/" + image_id + "x1" + ".jpg")
+            img_1_mask.save(
+                masks_folder_path + "/" + image_id + "_segmentation" + "x1" + ".png"
+            )
 
-    if melanoma == 1 : # perform 4 augms
+    if melanoma == 1:  # perform 4 augms
         augm_probability = 1
 
         img_1, img_1_mask = augment_operations(image_id, images_folder_path, masks_folder_path)
@@ -196,7 +202,7 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
 
 
 def augment_dataset(images_folder_path, masks_folder_path, csv_file_path, jobs):
-    """Performs augmentation on the whole dataset. 
+    """Performs augmentation on the whole dataset.
     Augmentation is performed in parallel to speed up process.
 
     Args:
@@ -207,13 +213,15 @@ def augment_dataset(images_folder_path, masks_folder_path, csv_file_path, jobs):
 
     Returns:
         None
-    """    
+    """
     images = [splitext(file)[0] for file in listdir(images_folder_path)]
-    Parallel(n_jobs=jobs)(delayed(augment_img)(image, images_folder_path, masks_folder_path, csv_file_path) for image in tqdm(images))
-    logging.info(f'Succesfully augmented {len(images)} images.')
-
-
-
+    Parallel(n_jobs=jobs)(
+        delayed(augment_img)(
+            image, images_folder_path, masks_folder_path, csv_file_path
+        )
+        for image in tqdm(images)
+    )
+    logging.info(f"Succesfully augmented {len(images)} images.")
 
 
 def split_train_validation(input_path, file_name, splits):
@@ -228,24 +236,38 @@ def split_train_validation(input_path, file_name, splits):
 
     Returns:
         None
-    """    
+    """
     df = pd.read_csv(os.path.join(input_path, file_name))
     df["k-fold"] = -1
     df = df.sample(frac=1).reset_index(drop=True)
     y = np.to_df.count()[0]
     kf = model_selection.StratifiedKFold(n_splits=splits)
-    for fold, train_idx, test_idx, in enumerate(kf.split(X=df, y=y)):
+    for (
+        fold,
+        train_idx,
+        test_idx,
+    ) in enumerate(kf.split(X=df, y=y)):
         df.loc[:, "k-fold"] = fold
     df.to_csv(os.path.join(input_path, "train_folds.csv"), index=False)
 
 
 def generate_dataset(imgs_dir, masks_dir):
-    del_superpixels(imgs_dir) #TO BE CHANGED 
-    resize_set(train_imgs_path, train_imgs_save_path, resize_dimensions, resize_jobs, train_val_test="TRAIN")
+    del_superpixels(imgs_dir)  # TO BE CHANGED
+    resize_set(
+        train_imgs_path,
+        train_imgs_save_path,
+        resize_dimensions,
+        resize_jobs,
+        train_val_test="TRAIN",
+    )
 
 
-
-#del_superpixels('D:/Users/imbrm/ISIC_2017/ayff')
-#get_result('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ay.csv')
-#augment_img('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ayff','D:/Users/imbrm/ISIC_2017/ayff', 'D:/Users/imbrm/ISIC_2017/ay.csv')
-augment_dataset('D:/Users/imbrm/ISIC_2017/ayff', 'D:/Users/imbrm/ISIC_2017/ayffs', 'D:/Users/imbrm/ISIC_2017/ay.csv', 3)
+# del_superpixels('D:/Users/imbrm/ISIC_2017/ayff')
+# get_result('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ay.csv')
+# augment_img('ISIC_0000002', 'D:/Users/imbrm/ISIC_2017/ayff','D:/Users/imbrm/ISIC_2017/ayff', 'D:/Users/imbrm/ISIC_2017/ay.csv')
+augment_dataset(
+    "D:/Users/imbrm/ISIC_2017/ayff",
+    "D:/Users/imbrm/ISIC_2017/ayffs",
+    "D:/Users/imbrm/ISIC_2017/ay.csv",
+    3,
+)
