@@ -56,16 +56,14 @@ def del_superpixels(input_path, jobs):
     logging.info(f"Succesfully deleted {len(images)} SUPERPIXEL images.")
 
 
-def resize(image, input_folder, output_path, size, image_or_mask):
+def resize(image, input_folder, size, image_or_mask):
     """Defining a function that will allow me to parallelise the resizing process.
-    It takes the name (basename) of the current image, creates the path for saving
-    the image in the ouput folder, and then opens, resizes and saves the image.
+    It takes the name (basename) of the current image, resizes and saves the image.
     The different file extension used for images (.JPG) and masks (.PNG) means
     that I need two different blocks of code depending on what it's being processed.
 
     Args:
         input_path (string): Path to the image.
-        output_dir (string): Name of the output directory in which the images will be stored.
         size (tuple): Target size to be resized to.
         image_or_mask (string): States whether it is an image or a mask.
 
@@ -76,26 +74,25 @@ def resize(image, input_folder, output_path, size, image_or_mask):
         image_path = input_folder + "/" + image + ".jpg"
         img = Image.open(image_path)
         img = img.resize((size[0], size[1]), resample=Image.BILINEAR)
-        img.save(output_path + "/" + image + ".jpg")
+        img.save(image_path)
 
     if image_or_mask == "MASK":
         image_path = input_folder + "/" + image + ".png"        
         img = Image.open(image_path)
         img = img.resize((size[0], size[1]), resample=Image.BILINEAR)
-        img.save(output_path + "/" + image + ".png")
+        img.save(image_path)
 
 
-def resize_set(input_folder, output_folder, size, jobs, train_or_test, image_or_mask):
+def resize_set(input_folder, size, jobs, train_or_test, image_or_mask):
     """
     Stores the input and output directories, then stores all the
-    names of the images in a list using glob, and executes the resizing in parallel.
+    names of the images in a list, and executes the resizing in parallel.
     For the parallelisation, Parallel and delayed are used.
     tqdm is used for visual representation of the progress, since the dataset is around
     30GB, it will take some time to process.
 
     Args:
         input_folder (string): Path for input folder.
-        output_folder (string): Path for output folder.
         size (tuple): Target size to be resized to.
         jobs (int): Number of parallelised jobs.
         train_or_test (string): States whether it's train or test set.
@@ -110,9 +107,10 @@ def resize_set(input_folder, output_folder, size, jobs, train_or_test, image_or_
     ]
     print(f"Resizing {train_or_test} Images:")
     Parallel(n_jobs=jobs)(delayed(resize)(
-        image, input_folder, output_folder, size, image_or_mask
+        image, input_folder, size, image_or_mask
     ) 
-        for image in tqdm(images))
+        for image in tqdm(images)
+    )
     logging.info(f"Resized {len(input_folder)} {train_or_test} images.")
 
 
@@ -151,13 +149,12 @@ def augment_operations(image_id, image_folder_path, mask_folder_path):
     transf_comp = transforms.Compose(
         [
             transforms.RandomAffine(
-                degrees=360, translate=(0.4, 0.5), scale=(0.5, 1), shear=[0, 20, 0, 20], fillcolor=0
+                degrees=360, scale=(0.5, 1), shear=[0, 20, 0, 20], fillcolor=0
             ),
             transforms.RandomHorizontalFlip(0.5),
             transforms.RandomVerticalFlip(0.5),
             transforms.RandomPerspective(p=1),
             transforms.RandomResizedCrop(size=img.size),
-            transforms.ColorJitter(2, 1, 2, 2)
         ]
     )
 
@@ -195,6 +192,7 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
         Exception: [description]
     """
     melanoma = int(get_result(image_id, csv_file_path))
+    if melanoma == 0:
         augm_probability = 0.5
         n = random.random()
         if n < augm_probability:
@@ -306,7 +304,23 @@ def make_greyscale(folder_path, jobs):
     logging.info(f"Successfully turned {len(images)} images to GrayScale.")
 
 
-def split(df, result, val_ratio=0.3):
+def move_data(list, path, data_type):
+    input_folder = path + "/" + "Train"
+    output_folder = path + "/" + "Validation"
+
+    if data_type.capitalize() == "Image":
+        for image_id in list:
+            shutil.move(input_folder + "/" + image_id + ".jpg", output_folder + "/" + image_id + ".jpg")
+
+    if data_type.capitalize() == "Mask":
+        input_folder = input_folder + "_GT_masks"
+        output_folder = output_folder + "_GT_masks"
+        for image_id in list:
+            shutil.move(input_folder + "/" + image_id + ".png", output_folder + "/" + image_id + "_segmentation" + ".png")
+
+
+
+def split(df, result, val_ratio, csv_file_path):
     """Performs the split into train and validation data.
     Stores the indices of images with or without melanoma in the "train" list,
     then it moves a certain percentage of them (specified by val_ratio) into 
@@ -316,6 +330,7 @@ def split(df, result, val_ratio=0.3):
         df (DataFrame): Pandas DataFrame containing information about the dataset.
         result (int): Whether it's melanoma (1) or no melanoma (0).
         val_ratio (float): Percentage of data to be split into validation.
+        csv_file_path (string): File path for extrapolating parent path.
 
     Returns:
         df (DataFrame): The transformed DataFrame with marked images.
@@ -328,9 +343,6 @@ def split(df, result, val_ratio=0.3):
     for element in validation:
         train.pop(train.index(element))
 
-    print(train)
-    print(validation)
-
     # Mark validation images with "V"
     for id in tqdm(validation):
         df.at[id, "split"] = "V"
@@ -338,6 +350,20 @@ def split(df, result, val_ratio=0.3):
     # Mark train images with "T"
     for id in tqdm(train):
         df.at[id, "split"] = "T"
+
+    val_ids = [df.at[index, "image_id"] for index in validation]
+    val_masks_ids = [df.at[index, "image_id"]+"_segmentation" for index in validation]
+
+    print(val_ids)
+    print(val_masks_ids)
+
+    path = os.path.split(csv_file_path)[0]
+    print(path)
+    # Move validation images to folder.
+    move_data(val_ids, path, "Image")
+
+    # Move validation masks to folder.
+    move_data(val_masks_ids, path, "Mask")
 
     return df
 
@@ -350,26 +376,29 @@ def split_train_val(csv_file_path):
     csv_copy = pd.read_csv(csv_copy_path)
     csv_copy["split"] = ""
     
-    print("Splitting the dataset into Train/Validation:\n")
+    print("Splitting the dataset into Train/Validation:")
     
     # MELANOMA YES (result=1)
-    csv_copy = split(df=csv_copy, result=1, val_ratio=0.3, jobs=3)
+    csv_copy = split(csv_copy, 1, 0.3, csv_file_path)
     # MELANOMA NO (result=0)
-    csv_copy = split(df=csv_copy, result=0, val_ratio=0.3, jobs=3)
+    csv_copy = split(csv_copy, 0, 0.3, csv_file_path)
 
     csv_copy.to_csv(csv_copy_path , index=False)
 
 
 def generate_dataset(  #delete,augment,resize,greyscale,split
     train_or_test,
-    images_folder_path,
-    masks_folder_path,
-    output_folder_path,
-    masks_output_path,
-    csv_file_path,
+    path,
     resize_dimensions,
     n_jobs
     ):
+    masks_suffix = "_GT_masks"
+    csv_suffix = "_GT_result.csv"
+
+    images_folder_path = path + "/" + train_or_test.capitalize()
+    masks_folder_path = path + "/" + train_or_test.capitalize() + masks_suffix
+    csv_file_path = path + "/" + train_or_test.capitalize() + csv_suffix
+
     # Delete superpixels.
     del_superpixels(images_folder_path, n_jobs)
 
@@ -384,7 +413,6 @@ def generate_dataset(  #delete,augment,resize,greyscale,split
     # Resize images.
     resize_set(
         images_folder_path,
-        output_folder_path,
         resize_dimensions,
         n_jobs,
         train_or_test,
@@ -394,7 +422,6 @@ def generate_dataset(  #delete,augment,resize,greyscale,split
     # Resize masks.
     resize_set(
         masks_folder_path,
-        masks_output_path,
         resize_dimensions,
         n_jobs,
         train_or_test,
@@ -403,25 +430,28 @@ def generate_dataset(  #delete,augment,resize,greyscale,split
 
     # Make images greyscale.
     make_greyscale(
-        output_folder_path,
+        images_folder_path,
         n_jobs,
     )
+
+    os.mkdir(path + "/" + "Validation")
+    os.mkdir(path + "/" + "Validation" + masks_suffix)
+
+    split_train_val(csv_file_path)
+
+
 
 
 
 
 
 if __name__ == "__main__":
-    # generate_dataset(
-    #     "TRAIN",
-    #     "D:/Users/imbrm/ISIC_2017/check/ayff",
-    #     "D:/Users/imbrm/ISIC_2017/check/ayffs",
-    #     "D:/Users/imbrm/ISIC_2017/check/ayffout",
-    #     "D:/Users/imbrm/ISIC_2017/check/ayffsout",
-    #     "D:/Users/imbrm/ISIC_2017/check/ay.csv",
-    #     (572,572),
-    #     3,
-    # )
-    split_train_val("D:/Users/imbrm/ISIC_2017/check/Test_GT_result.csv")
+    generate_dataset(
+        "Train",
+        "D:/Users/imbrm/ISIC_2017/check",
+        (572,572),
+        3,
+    )
+    #split_train_val("D:/Users/imbrm/ISIC_2017/check/Test_GT_result.csv")
     #df = pd.read_csv("D:/Users/imbrm/ISIC_2017/check/ay.csv")
     #split(df, 1, 0.3, 3)
