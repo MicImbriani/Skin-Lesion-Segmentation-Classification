@@ -4,6 +4,8 @@ from os import listdir
 import glob
 import logging
 import random
+import shutil
+import math
 
 import pandas as pd
 from sklearn import model_selection
@@ -43,6 +45,7 @@ def del_superpixels(input_path, jobs):
     Returns:
         None
     """
+    # Store the IDs of all the _superpixel images in a list.
     images = [
         splitext(file)[0]
         for file in listdir(input_path)
@@ -55,13 +58,10 @@ def del_superpixels(input_path, jobs):
 
 def resize(image, input_folder, output_path, size, image_or_mask):
     """Defining a function that will allow me to parallelise the resizing process.
-    The following function resizes 1 image at a time. It takes 3 parameters:
-    1) the current image's path,
-    2) the path of the output folder in which resized images will be stored,
-    3) a (w,h) tuple of the width and height to be resized to.
-    The following function takes the name (basename) of the current image,
-    creates the path for saving the image in the ouput folder, and then
-    opens, resizes and saves the image.
+    It takes the name (basename) of the current image, creates the path for saving
+    the image in the ouput folder, and then opens, resizes and saves the image.
+    The different file extension used for images (.JPG) and masks (.PNG) means
+    that I need two different blocks of code depending on what it's being processed.
 
     Args:
         input_path (string): Path to the image.
@@ -126,9 +126,7 @@ def get_result(image_id, csv_file_path):
     Returns:
         melanoma (int): The melanoma classification result in 0 or 1.
     """
-    # given image id, finds the row in the csv file and returns results
     df = pd.read_csv(csv_file_path)
-    img_in = df.loc[df["image_id"] == image_id]
     img_index = df.loc[df["image_id"] == image_id].index[0]
     melanoma = df.at[img_index, "melanoma"]
     return melanoma
@@ -136,8 +134,7 @@ def get_result(image_id, csv_file_path):
 
 def augment_operations(image_id, image_folder_path, mask_folder_path):
     """Performs augmentation operations on the inputted image.
-    Seed is used for using the same randomly generated numbers for applying
-    the same augmentation to the image and its mask.
+    Seed is used for for applying the same augmentation to the image and its mask.
 
     Args:
         image_id (string): The ID of the image to be augmented.
@@ -154,18 +151,22 @@ def augment_operations(image_id, image_folder_path, mask_folder_path):
     transf_comp = transforms.Compose(
         [
             transforms.RandomAffine(
-                degrees=360, scale=(0.5, 1.1), shear=[0, 20, 0, 20], fillcolor=0
+                degrees=360, translate=(0.4, 0.5), scale=(0.5, 1), shear=[0, 20, 0, 20], fillcolor=0
             ),
             transforms.RandomHorizontalFlip(0.5),
             transforms.RandomVerticalFlip(0.5),
             transforms.RandomPerspective(p=1),
             transforms.RandomResizedCrop(size=img.size),
+            transforms.ColorJitter(2, 1, 2, 2)
         ]
     )
 
-    seed = np.random.randint(0, 2 ** 30)
+    # Set random seed.
+    seed = np.random.randint(0, 2**30)
     random.seed(seed)
     torch.manual_seed(seed)
+
+    # Transform the image and mask using the same transformation.
     new_img = transf_comp(img)
     torch.manual_seed(seed)
     new_img_mask = transf_comp(mask)
@@ -179,6 +180,10 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
     If mole is not melanoma, perform 1 augmentation with probability=0.5.
     If mole is melanoma, perform 4 augmentation with probability=1.
     It performs the same transformation on the image and its relative mask.
+    I chose a simple random number generator over PyTorch's RandomApply because
+    this way an image that is not ment to be augmented will not be processed at all:
+    when using RandomApply, the image will still be saved as ___x1 despite having 
+    recieved no augmentation i.e. being identical to the original picture.
 
     Args:
         image_id (string): ID of the image to be augmented.
@@ -190,22 +195,22 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
         Exception: [description]
     """
     melanoma = int(get_result(image_id, csv_file_path))
-    if melanoma == 0:  # perform augment with 0.5 prob
         augm_probability = 0.5
         n = random.random()
         if n < augm_probability:
+            # Perform augmentation, store the resulting image and mask.
             img_1, img_1_mask = augment_operations(
                 image_id, images_folder_path, masks_folder_path
             )
 
+            # Save image and mask in two dedicated folders.
             img_1.save(images_folder_path + "/" + image_id + "x1" + ".jpg")
             img_1_mask.save(
                 masks_folder_path + "/" + image_id + "_segmentation" + "x1" + ".png"
             )
 
-    if melanoma == 1:  # perform 4 augms
-        augm_probability = 1
-
+    if melanoma == 1:
+        # Perform augmentations, store the resulting images and masks.
         img_1, img_1_mask = augment_operations(
             image_id, images_folder_path, masks_folder_path
         )
@@ -218,12 +223,14 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
         img_4, img_4_mask = augment_operations(
             image_id, images_folder_path, masks_folder_path
         )
-
+        
+        # Save images in dedicated folder.
         img_1.save(images_folder_path + "/" + image_id + "x1" + ".jpg")
         img_2.save(images_folder_path + "/" + image_id + "x2" + ".jpg")
         img_3.save(images_folder_path + "/" + image_id + "x3" + ".jpg")
         img_4.save(images_folder_path + "/" + image_id + "x4" + ".jpg")
 
+        # Save masks in dedicated folder.
         img_1_mask.save(
             masks_folder_path + "/" + image_id + "_segmentation" + "x1" + ".png"
         )
@@ -299,31 +306,58 @@ def make_greyscale(folder_path, jobs):
     logging.info(f"Successfully turned {len(images)} images to GrayScale.")
 
 
-def split_train_validation(input_path, file_name, splits):
-    """
-    Splits the dataset into train/validation by adding a "k-fold" column in the .csv file and assigning a fold number.
-    Shuffles the dataset beforehand (line 3).
-    StratifiedKFold because I want cancer/no-cancer ratio to be the same in both sets.
+def split(df, result, val_ratio=0.3):
+    """Performs the split into train and validation data.
+    Stores the indices of images with or without melanoma in the "train" list,
+    then it moves a certain percentage of them (specified by val_ratio) into 
+    the "validation" list. Finally, marks each image with "T" or "V" appropriately.
 
     Args:
-        input_path ([string]): [Path of the input directory with the dataset]
-        splits ([int]): [Number of cross validation folds to be applied]
+        df (DataFrame): Pandas DataFrame containing information about the dataset.
+        result (int): Whether it's melanoma (1) or no melanoma (0).
+        val_ratio (float): Percentage of data to be split into validation.
 
     Returns:
-        None
-    """
-    df = pd.read_csv(os.path.join(input_path, file_name))
-    df["k-fold"] = -1
-    df = df.sample(frac=1).reset_index(drop=True)
-    y = np.to_df.count()[0]
-    kf = model_selection.StratifiedKFold(n_splits=splits)
-    for (
-        fold,
-        train_idx,
-        test_idx,
-    ) in enumerate(kf.split(X=df, y=y)):
-        df.loc[:, "k-fold"] = fold
-    df.to_csv(os.path.join(input_path, "train_folds.csv"), index=False)
+        df (DataFrame): The transformed DataFrame with marked images.
+    """    
+    train = list(df[df["melanoma"] == result].index)
+    # ceil function for rounding up float numbers
+    n_val = math.ceil(val_ratio * len(train))
+    validation = random.sample(train, n_val)
+    validation.sort()
+    for element in validation:
+        train.pop(train.index(element))
+
+    print(train)
+    print(validation)
+
+    # Mark validation images with "V"
+    for id in tqdm(validation):
+        df.at[id, "split"] = "V"
+    
+    # Mark train images with "T"
+    for id in tqdm(train):
+        df.at[id, "split"] = "T"
+
+    return df
+
+
+def split_train_val(csv_file_path):
+    csv_name = splitext(os.path.basename(csv_file_path))[0]
+    csv_copy_path = os.path.split(csv_file_path)[0] + "/" + csv_name + "_split.csv"
+    shutil.copy2(csv_file_path, csv_copy_path)
+
+    csv_copy = pd.read_csv(csv_copy_path)
+    csv_copy["split"] = ""
+    
+    print("Splitting the dataset into Train/Validation:\n")
+    
+    # MELANOMA YES (result=1)
+    csv_copy = split(df=csv_copy, result=1, val_ratio=0.3, jobs=3)
+    # MELANOMA NO (result=0)
+    csv_copy = split(df=csv_copy, result=0, val_ratio=0.3, jobs=3)
+
+    csv_copy.to_csv(csv_copy_path , index=False)
 
 
 def generate_dataset(  #delete,augment,resize,greyscale,split
@@ -378,13 +412,16 @@ def generate_dataset(  #delete,augment,resize,greyscale,split
 
 
 if __name__ == "__main__":
-    generate_dataset(
-        "TRAIN",
-        "D:/Users/imbrm/ISIC_2017/check/ayff",
-        "D:/Users/imbrm/ISIC_2017/check/ayffs",
-        "D:/Users/imbrm/ISIC_2017/check/ayffout",
-        "D:/Users/imbrm/ISIC_2017/check/ayffsout",
-        "D:/Users/imbrm/ISIC_2017/check/ay.csv",
-        (572,572),
-        3,
-    )
+    # generate_dataset(
+    #     "TRAIN",
+    #     "D:/Users/imbrm/ISIC_2017/check/ayff",
+    #     "D:/Users/imbrm/ISIC_2017/check/ayffs",
+    #     "D:/Users/imbrm/ISIC_2017/check/ayffout",
+    #     "D:/Users/imbrm/ISIC_2017/check/ayffsout",
+    #     "D:/Users/imbrm/ISIC_2017/check/ay.csv",
+    #     (572,572),
+    #     3,
+    # )
+    split_train_val("D:/Users/imbrm/ISIC_2017/check/Test_GT_result.csv")
+    #df = pd.read_csv("D:/Users/imbrm/ISIC_2017/check/ay.csv")
+    #split(df, 1, 0.3, 3)
