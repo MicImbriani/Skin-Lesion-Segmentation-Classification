@@ -49,7 +49,10 @@ def del_superpixels(input_path, jobs):
         if "_superpixels" in splitext(file)[0]
     ]
     print("Deleting Superpixel Images:")
-    Parallel(n_jobs=jobs)(delayed(os.remove)(str(input_path + "/" + str(image + ".png"))) for image in tqdm(images))
+    Parallel(n_jobs=jobs)(
+        delayed(os.remove)(str(input_path + "/" + str(image + ".png")))
+        for image in tqdm(images)
+    )
     logging.info(f"Succesfully deleted {len(images)} SUPERPIXEL images.")
 
 
@@ -71,7 +74,7 @@ def resize(image, input_folder, size, image_or_mask):
         img.save(image_path)
 
     if image_or_mask == "MASK":
-        image_path = input_folder + "/" + image + ".png"        
+        image_path = input_folder + "/" + image + ".png"
         img = Image.open(image_path)
         img = img.resize((size[0], size[1]), resample=Image.BILINEAR)
         img.save(image_path)
@@ -92,14 +95,10 @@ def resize_set(input_folder, size, jobs, train_or_test, image_or_mask):
         train_or_test (string): States whether it's train or test set.
         image_or_mask (string): States whether it is an image or a mask.
     """
-    images = [
-        splitext(file)[0]
-        for file in listdir(input_folder)
-    ]
+    images = [splitext(file)[0] for file in listdir(input_folder)]
     print(f"Resizing {train_or_test} Images:")
-    Parallel(n_jobs=jobs)(delayed(resize)(
-        image, input_folder, size, image_or_mask
-    ) 
+    Parallel(n_jobs=jobs)(
+        delayed(resize)(image, input_folder, size, image_or_mask)
         for image in tqdm(images)
     )
     logging.info(f"Resized {len(input_folder)} {train_or_test} images.")
@@ -171,7 +170,7 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
     It performs the same transformation on the image and its relative mask.
     I chose a simple random number generator over PyTorch's RandomApply because
     this way an image that is not ment to be augmented will not be processed at all:
-    when using RandomApply, the image will still be saved as ___x1 despite having 
+    when using RandomApply, the image will still be saved as ___x1 despite having
     recieved no augmentation i.e. being identical to the original picture.
 
     Args:
@@ -210,7 +209,7 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
         img_4, img_4_mask = augment_operations(
             image_id, images_folder_path, masks_folder_path
         )
-        
+
         # Save images in dedicated folder.
         img_1.save(images_folder_path + "/" + image_id + "x1" + ".jpg")
         img_2.save(images_folder_path + "/" + image_id + "x2" + ".jpg")
@@ -259,11 +258,10 @@ def turn_grayscale(image, folder_path):
     Args:
         image (string): ID of image to be turn into grayscale.
         folder_path (string): Path leading to folder containing images.
-    """    
+    """
     img = Image.open(folder_path + "/" + image + ".jpg")
     grey = transforms.functional.rgb_to_grayscale(img)
     grey.save(folder_path + "/" + image + ".jpg")
-
 
 
 def make_greyscale(folder_path, jobs):
@@ -272,14 +270,11 @@ def make_greyscale(folder_path, jobs):
     Args:
         folder_path (string): Path leading to folder containing images.
         jobs (int): Number of job for parallelisation.
-    """    
+    """
     images = [splitext(file)[0] for file in listdir(folder_path)]
     print("Turning images to GrayScale:")
     Parallel(n_jobs=jobs)(
-        delayed(turn_grayscale)(
-            image, folder_path
-        )
-        for image in tqdm(images)
+        delayed(turn_grayscale)(image, folder_path) for image in tqdm(images)
     )
     logging.info(f"Successfully turned {len(images)} images to GrayScale.")
 
@@ -292,26 +287,31 @@ def move_data(list, path, data_type):
         list (list): List containing the IDs of validation images/masks.
         path (string): Path to parent folder.
         data_type (string): Defines whether it's an image or a mask.
-    """    
+    """
     input_folder = path + "/" + "Train"
     output_folder = path + "/" + "Validation"
 
     if data_type.capitalize() == "Image":
         for image_id in list:
-            shutil.move(input_folder + "/" + image_id + ".jpg", output_folder + "/" + image_id + ".jpg")
+            shutil.move(
+                input_folder + "/" + image_id + ".jpg",
+                output_folder + "/" + image_id + ".jpg",
+            )
 
     if data_type.capitalize() == "Mask":
         input_folder = input_folder + "_GT_masks"
         output_folder = output_folder + "_GT_masks"
         for image_id in list:
-            shutil.move(input_folder + "/" + image_id + ".png", output_folder + "/" + image_id + "_segmentation" + ".png")
-
+            shutil.move(
+                input_folder + "/" + image_id + ".png",
+                output_folder + "/" + image_id + "_segmentation" + ".png",
+            )
 
 
 def split(df, result, val_ratio, csv_file_path):
     """Performs the split into train and validation data.
     Stores the indices of images with or without melanoma in the "train" list,
-    then it moves a certain percentage of them (specified by val_ratio) into 
+    then it moves a certain percentage of them (specified by val_ratio) into
     the "validation" list. Finally, marks each image with "T" or "V" appropriately.
     The split is randomly performed using random.sample() function.
 
@@ -335,13 +335,13 @@ def split(df, result, val_ratio, csv_file_path):
     # Mark validation images with "V"
     for id in tqdm(validation):
         df.at[id, "split"] = "V"
-    
+
     # Mark train images with "T"
     for id in tqdm(train):
         df.at[id, "split"] = "T"
 
     val_ids = [df.at[index, "image_id"] for index in validation]
-    val_masks_ids = [df.at[index, "image_id"]+"_segmentation" for index in validation]
+    val_masks_ids = [df.at[index, "image_id"] + "_segmentation" for index in validation]
 
     path = os.path.split(csv_file_path)[0]
 
@@ -359,29 +359,25 @@ def split_train_val(csv_file_path):
 
     Args:
         csv_file_path (string): Path to .csv file containing ground truth.
-    """    
+    """
     csv_name = splitext(os.path.basename(csv_file_path))[0]
     csv_copy_path = os.path.split(csv_file_path)[0] + "/" + csv_name + "_split.csv"
     shutil.copy2(csv_file_path, csv_copy_path)
 
     csv_copy = pd.read_csv(csv_copy_path)
     csv_copy["split"] = ""
-    
+
     print("Splitting the dataset into Train/Validation:")
-    
+
     # MELANOMA YES (result=1)
     csv_copy = split(csv_copy, 1, 0.3, csv_file_path)
     # MELANOMA NO (result=0)
     csv_copy = split(csv_copy, 0, 0.3, csv_file_path)
 
-    csv_copy.to_csv(csv_copy_path , index=False)
+    csv_copy.to_csv(csv_copy_path, index=False)
 
 
-def generate_dataset(
-    path,
-    resize_dimensions,
-    n_jobs
-    ):
+def generate_dataset(path, resize_dimensions, n_jobs):
     masks_suffix = "_GT_masks"
     csv_suffix = "_GT_result.csv"
 
@@ -430,14 +426,9 @@ def generate_dataset(
     split_train_val(csv_file_path)
 
 
-
-
-
-
-
 if __name__ == "__main__":
     generate_dataset(
         "D:/Users/imbrm/ISIC_2017/check",
-        (572,572),
+        (572, 572),
         3,
     )
