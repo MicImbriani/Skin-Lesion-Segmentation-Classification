@@ -426,9 +426,9 @@ def generate_dataset(path, resize_dimensions, n_jobs):
     split_train_val(csv_file_path)
 
 
-if __name__ == "__main__":
-    generate_dataset(
-        "D:/Users/imbrm/ISIC_2017/check",
-        (572, 572),
-        3,
-    )
+# if __name__ == "__main__":
+#     generate_dataset(
+#         "D:/Users/imbrm/ISIC_2017/check",
+#         (572, 572),
+#         3,
+#     )

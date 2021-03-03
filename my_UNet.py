@@ -89,6 +89,7 @@ class UNet(nn.Module):
         self.convolution_3 = double_convolution(128, 256)
         self.convolution_4 = double_convolution(256, 512)
         self.convolution_5 = double_convolution(512, 1024)
+        self.drop_layer = nn.Dropout(p=0.5)
 
         # Define the 5 upwards transpostions and forward convolutions.
         self.up_transpose_1 = up_transpose(1024, 512)
