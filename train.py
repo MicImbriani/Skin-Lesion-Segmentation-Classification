@@ -36,11 +36,12 @@ def train_net(
     save_cp,
     img_scale
     ):
+
     #dataset =
     validation_quantity = int(len(dataset) * validation_ratio)
     train_quantity = len(dataset) - validation_quantity
 
-    train, validation = random_split(dataset, [train_quanity, validation_quantity])
+    #train, validation = random_split(dataset, [train_quanity, validation_quantity])
 
     train_loader = DataLoader(train, 
                               batch_size=batch_size,
@@ -57,16 +58,16 @@ def train_net(
     writer = SummaryWriter(comment=f'LR:{lr}_BS:{batch_size}_VAL:{validation_ratio}')
     global_step = 0
 
-    logging.info(f'''Starting training:
-        Epochs:          {epochs}
-        Batch size:      {batch_size}
-        Learning rate:   {lr}
-        Training size:   {n_train}
-        Validation size: {n_val}
-        Checkpoints:     {save_cp}
-        Device:          {device.type}
-        Images scaling:  {img_scale}
-    ''')
+    # logging.info(f'''Starting training:
+    #     Epochs:          {epochs}
+    #     Batch size:      {batch_size}
+    #     Learning rate:   {lr}
+    #     Training size:   {n_train}
+    #     Validation size: {n_val}
+    #     Checkpoints:     {save_cp}
+    #     Device:          {device.type}
+    #     Images scaling:  {img_scale}
+    # ''')
 
     return
 
