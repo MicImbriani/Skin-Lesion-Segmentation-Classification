@@ -56,49 +56,38 @@ def del_superpixels(input_path, jobs):
     logging.info(f"Succesfully deleted {len(images)} SUPERPIXEL images.")
 
 
-def resize(image, input_folder, size, image_or_mask):
+def resize(image, input_folder, size):
     """Defining a function that will allow me to parallelise the resizing process.
     It takes the name (basename) of the current image, resizes and saves the image.
-    The different file extension used for images (.JPG) and masks (.PNG) means
-    that I need two different blocks of code depending on what it's being processed.
 
     Args:
         input_path (string): Path to the image.
         size (tuple): Target size to be resized to.
-        image_or_mask (string): States whether it is an image or a mask.
     """
-    if image_or_mask == "IMAGE":
-        image_path = input_folder + "/" + image + ".jpg"
-        img = Image.open(image_path)
-        img = img.resize((size[0], size[1]), resample=Image.BILINEAR)
-        img.save(image_path)
-
-    if image_or_mask == "MASK":
         image_path = input_folder + "/" + image + ".png"
         img = Image.open(image_path)
-        img = img.resize((size[0], size[1]), resample=Image.BILINEAR)
+        img = img.resize((size[0], size[1]), resample=Image.ANTIALIAS)
         img.save(image_path)
 
 
-def resize_set(input_folder, size, jobs, train_or_test, image_or_mask):
+def resize_set(input_folder, size, jobs, train_or_test):
     """
     Stores the input and output directories, then stores all the
     names of the images in a list, and executes the resizing in parallel.
     For the parallelisation, Parallel and delayed are used.
-    tqdm is used for visual representation of the progress, since the dataset is around
-    30GB, it will take some time to process.
+    tqdm is used for visual representation of the progress, since the
+    dataset is around 30GB, it will take some time to process.
 
     Args:
         input_folder (string): Path for input folder.
         size (tuple): Target size to be resized to.
         jobs (int): Number of parallelised jobs.
         train_or_test (string): States whether it's train or test set.
-        image_or_mask (string): States whether it is an image or a mask.
     """
     images = [splitext(file)[0] for file in listdir(input_folder)]
     print(f"Resizing {train_or_test} Images:")
     Parallel(n_jobs=jobs)(
-        delayed(resize)(image, input_folder, size, image_or_mask)
+        delayed(resize)(image, input_folder, size)
         for image in tqdm(images)
     )
     logging.info(f"Resized {len(input_folder)} {train_or_test} images.")
@@ -190,9 +179,9 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
             )
 
             # Save image and mask in two dedicated folders.
-            img_1.save(images_folder_path + "/" + image_id + "x1" + ".jpg")
+            img_1.save(images_folder_path + "/" + image_id + "x1" + ".png", "PNG", quality=100)
             img_1_mask.save(
-                masks_folder_path + "/" + image_id + "_segmentation" + "x1" + ".png"
+                masks_folder_path + "/" + image_id + "_segmentation" + "x1" + ".png", "PNG", quality=100
             )
 
     if melanoma == 1:
@@ -211,23 +200,23 @@ def augment_img(image_id, images_folder_path, masks_folder_path, csv_file_path):
         )
 
         # Save images in dedicated folder.
-        img_1.save(images_folder_path + "/" + image_id + "x1" + ".jpg")
-        img_2.save(images_folder_path + "/" + image_id + "x2" + ".jpg")
-        img_3.save(images_folder_path + "/" + image_id + "x3" + ".jpg")
-        img_4.save(images_folder_path + "/" + image_id + "x4" + ".jpg")
+        img_1.save(images_folder_path + "/" + image_id + "x1" + ".png", "PNG", quality=100)
+        img_2.save(images_folder_path + "/" + image_id + "x2" + ".png", "PNG", quality=100)
+        img_3.save(images_folder_path + "/" + image_id + "x3" + ".png", "PNG", quality=100)
+        img_4.save(images_folder_path + "/" + image_id + "x4" + ".png", "PNG", quality=100)
 
         # Save masks in dedicated folder.
         img_1_mask.save(
-            masks_folder_path + "/" + image_id + "_segmentation" + "x1" + ".png"
+            masks_folder_path + "/" + image_id + "_segmentation" + "x1" + ".png", "PNG", quality=100
         )
         img_2_mask.save(
-            masks_folder_path + "/" + image_id + "_segmentation" + "x2" + ".png"
+            masks_folder_path + "/" + image_id + "_segmentation" + "x2" + ".png", "PNG", quality=100
         )
         img_3_mask.save(
-            masks_folder_path + "/" + image_id + "_segmentation" + "x3" + ".png"
+            masks_folder_path + "/" + image_id + "_segmentation" + "x3" + ".png", "PNG", quality=100
         )
         img_4_mask.save(
-            masks_folder_path + "/" + image_id + "_segmentation" + "x4" + ".png"
+            masks_folder_path + "/" + image_id + "_segmentation" + "x4" + ".png", "PNG", quality=100
         )
 
 
@@ -259,9 +248,9 @@ def turn_grayscale(image, folder_path):
         image (string): ID of image to be turn into grayscale.
         folder_path (string): Path leading to folder containing images.
     """
-    img = Image.open(folder_path + "/" + image + ".jpg")
+    img = Image.open(folder_path + "/" + image + ".png")
     grey = transforms.functional.rgb_to_grayscale(img)
-    grey.save(folder_path + "/" + image + ".jpg")
+    grey.save(folder_path + "/" + image + ".png")
 
 
 def make_greyscale(folder_path, jobs):
@@ -294,8 +283,8 @@ def move_data(list, path, data_type):
     if data_type.capitalize() == "Image":
         for image_id in list:
             shutil.move(
-                input_folder + "/" + image_id + ".jpg",
-                output_folder + "/" + image_id + ".jpg",
+                input_folder + "/" + image_id + ".png",
+                output_folder + "/" + image_id + ".png",
             )
 
     if data_type.capitalize() == "Mask":
@@ -354,7 +343,7 @@ def split(df, result, val_ratio, csv_file_path):
     return df
 
 
-def split_train_val(csv_file_path):
+def split_train_val(csv_file_path, percent):
     """Callable function for splitting the dataset into train and validation.
 
     Args:
@@ -370,9 +359,9 @@ def split_train_val(csv_file_path):
     print("Splitting the dataset into Train/Validation:")
 
     # MELANOMA YES (result=1)
-    csv_copy = split(csv_copy, 1, 0.3, csv_file_path)
+    csv_copy = split(csv_copy, 1, percent, csv_file_path)
     # MELANOMA NO (result=0)
-    csv_copy = split(csv_copy, 0, 0.3, csv_file_path)
+    csv_copy = split(csv_copy, 0, percent, csv_file_path)
 
     csv_copy.to_csv(csv_copy_path, index=False)
 
@@ -402,7 +391,6 @@ def generate_dataset(path, resize_dimensions, n_jobs):
         resize_dimensions,
         n_jobs,
         "Train",
-        image_or_mask="IMAGE",
     )
 
     # Resize masks.
@@ -411,7 +399,6 @@ def generate_dataset(path, resize_dimensions, n_jobs):
         resize_dimensions,
         n_jobs,
         "Test",
-        image_or_mask="MASK",
     )
 
     # Make images greyscale.
@@ -423,12 +410,12 @@ def generate_dataset(path, resize_dimensions, n_jobs):
     os.mkdir(path + "/" + "Validation")
     os.mkdir(path + "/" + "Validation" + masks_suffix)
 
-    split_train_val(csv_file_path)
+    split_train_val(csv_file_path, 0.2)
 
 
-# if __name__ == "__main__":
-#     generate_dataset(
-#         "D:/Users/imbrm/ISIC_2017/check",
-#         (572, 572),
-#         3,
-#     )
+if __name__ == "__main__":
+    generate_dataset(
+        "D:/Users/imbrm/ISIC_2017-2",
+        (572, 572),
+        10,
+    )

@@ -26,6 +26,12 @@ resize_dimensions = (572, 572)
 resize_jobs = 10
 
 
+
+train_loader = DataLoader(TensorDataset(X_train_t, y_train_t), shuffle=True, batch_size=batch_size)
+val_loader = DataLoader(TensorDataset(X_val_t, y_val_t), shuffle=False, batch_size=batch_size)
+test_loader = DataLoader
+
+
 def train_net(
     net,
     device,
@@ -70,6 +76,10 @@ def train_net(
     # ''')
 
     return
+
+
+def main(args):
+    device = torch.device("cpu" if not torch.cuda.is_available() else args.device)
 
                 
             
