@@ -411,11 +411,3 @@ def generate_dataset(path, resize_dimensions, n_jobs):
     os.mkdir(path + "/" + "Validation" + masks_suffix)
 
     split_train_val(csv_file_path, 0.2)
-
-
-if __name__ == "__main__":
-    generate_dataset(
-        "D:/Users/imbrm/ISIC_2017-2",
-        (572, 572),
-        10,
-    )

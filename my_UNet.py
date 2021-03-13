@@ -108,6 +108,9 @@ class UNet(nn.Module):
         self.out = nn.Conv2d(in_channels=64, out_channels=2, kernel_size=1)
         # out_ch=2 because there is only 2 possible classes i.e. background or mole
 
+    def __len__(self):
+        return len(self.ids)
+
 
     def forward(self, image):
         """Forward passing function.

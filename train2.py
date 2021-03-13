@@ -1,16 +1,20 @@
 import glob
 import matplotlib.pyplot as plt
-import cv2
-import pandas as pd
 import math
-import optim
 
+import cv2
+import torch
+import torch.nn as nn
 import numpy as np
+import pandas as pd
+from torch import optim
+from tqdm import tqdm
+
 from sklearn.metrics import roc_curve, auc
+from torch.utils.data import DataLoader
 
-import models
 import my_UNet
-
+import MyDataset
 
 dtype = torch.float
 #device = torch.device("cpu")
@@ -28,7 +32,7 @@ epochs = 5
 
 
 
-train_img_ids = [splitext(file)[0]+".jpg" for file in listdir(in_train_dir)]
+""" train_img_ids = [splitext(file)[0]+".jpg" for file in listdir(in_train_dir)]
 train_img_masks = [splitext(file)[0]+".png" for file in listdir(in_train_masks_dir)]
 
 train_img_ids.sort()
@@ -70,7 +74,19 @@ for idx, mask_name in enumerate(train_img_masks):
     train_masks2[idx,:,:,0] = thresh_img[:,:,0]
 
 train_images = np.zeros((5000, 572, 572, 1))
-train_masks = np.zeros((5000, 572, 572, 1))
+train_masks = np.zeros((5000, 572, 572, 1)) """
 
-model = my_UNet().cuda()
-opt = torch.optim.Adam(model.parameters(), lr=0.001)55
+data preprocess function
+dataset = MyDataset("D:/Users/imbrm/ISIC_2017-2")
+
+net = my_UNet().cuda()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=2)
+criterion = nn.BCEWithLogitsLoss()
+
+for epoch in range(epochs):
+    net.train()
+
+    epoch_loss = 0
+    with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{epochs}', unit='img') as pbar:
+        for batch in train_loader:
